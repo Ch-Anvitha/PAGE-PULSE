@@ -4,7 +4,8 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import httpx
+from curl_cffi.requests import AsyncSession
+from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from bs4 import BeautifulSoup
 
 app = FastAPI(title="Page Pulse API")
@@ -49,17 +50,20 @@ async def analyze_url(payload: AuditRequest):
         return AuditResponse(success=False, url=raw_url, error="URL cannot be empty.")
 
     target_url = normalize_url(raw_url)
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     start_time = time.perf_counter()
 
     try:
         # 8.0 second timeout strictly to beat Vercel's 10s execution limit
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
-            response = await client.get(target_url, headers=headers)
-            
+        # impersonate="chrome" matches curl_cffi's TLS/HTTP2 fingerprint (and default
+        # headers) to a real Chrome browser, so sites that block plain httpx/requests
+        # traffic at the handshake level (Cloudflare, Akamai, most enterprise WAFs)
+        # see what looks like an ordinary browser visit instead.
+        async with AsyncSession(timeout=8.0, allow_redirects=True, impersonate="chrome") as session:
+            response = await session.get(target_url)
+
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
-    except httpx.ConnectTimeout:
+    except CurlTimeout:
         return AuditResponse(success=False, url=target_url, error="Server timeout.")
     except Exception as exc:
         return AuditResponse(success=False, url=target_url, error=f"Network error: {str(exc)}")
