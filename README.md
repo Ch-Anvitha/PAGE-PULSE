@@ -2,9 +2,11 @@
 
 Page Pulse is a lightweight technical website auditing tool. Give it a URL, and it fetches the page, parses its HTML, and reports back the metrics that matter for SEO and accessibility hygiene — in a few hundred milliseconds, with no sign-up and no heavyweight tooling.
 
+**Live app:** https://page-pulse-7bu6.onrender.com
+
 ## Overview & Features
 
-Under the hood, a FastAPI backend fetches the target page with a browser-impersonating HTTP client, parses it with BeautifulSoup, and returns a structured JSON report. A custom HTML/CSS/JS frontend renders that report as an interactive set of metric cards.
+A FastAPI backend fetches the target page with a browser-impersonating HTTP client, parses it with BeautifulSoup, and returns a structured JSON report. The same FastAPI service also serves the frontend directly, so the whole app — UI and API — lives at a single URL.
 
 Page Pulse audits:
 
@@ -21,8 +23,8 @@ Page Pulse audits:
 | Layer     | Choice                                             |
 | --------- | --------------------------------------------------- |
 | Backend   | FastAPI, `curl_cffi` (browser-impersonating async HTTP client), BeautifulSoup4 |
-| Frontend  | Vanilla HTML / CSS / JavaScript, `html2pdf.js` for PDF export |
-| Hosting   | Vercel (Python serverless function + static frontend) |
+| Frontend  | Vanilla HTML / CSS / JavaScript, `html2pdf.js` for PDF export, served directly by FastAPI |
+| Hosting   | Render (single web service) |
 | Testing   | `pytest`, FastAPI `TestClient`, `unittest.mock`    |
 
 ## Local Setup Instructions
@@ -31,39 +33,35 @@ Page Pulse audits:
 
 ```bash
 git clone https://github.com/Ch-anvitha/page-pulse.git
-cd page-pulse
+cd page-pulse/backend
 ```
 
-### 2. Set up the backend
+Everything — `main.py`, `index.html`, and requirements — lives inside `backend/`, since FastAPI serves the frontend itself.
+
+### 2. Set up a virtual environment
 
 ```bash
-cd backend
 python -m venv venv
 
 # macOS / Linux
 source venv/bin/activate
 # Windows
 venv\Scripts\activate
+```
 
+### 3. Install dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 3. Run the FastAPI server locally
+### 4. Run the server
 
 ```bash
 uvicorn main:app --reload --port 8000
 ```
 
-Your API is now live at `http://127.0.0.1:8000`. FastAPI's interactive docs are available at `http://127.0.0.1:8000/docs`.
-
-### 4. Launch the frontend
-
-`index.html` calls the API using a relative path (`API_BASE_URL = ''`), so it expects the frontend and backend to be served from the same origin — that's how it works once deployed on Vercel. For **local development**, either:
-
-- **Quick option:** temporarily set `const API_BASE_URL = 'http://127.0.0.1:8000';` near the top of the `<script>` block in `index.html`, then just open the file directly in your browser (or serve it with any static server, e.g. `python -m http.server 5500`).
-- **Closer-to-production option:** run `vercel dev` from the project root, which serves the frontend and the Python function together on one origin, matching what happens in production.
-
-Remember to revert the `API_BASE_URL` change before committing, so production keeps using the relative path.
+That's it — open **`http://127.0.0.1:8000`** in your browser and you'll see the full Page Pulse UI. There's no separate frontend step: FastAPI serves `index.html` at `/` and the API at `/api/analyze` from the same process, so it behaves exactly like production. Interactive API docs are available at `http://127.0.0.1:8000/docs`.
 
 ### 5. Run the test suite (optional but recommended)
 
@@ -144,33 +142,41 @@ Errors you may see in `error`:
 
 The report is exported to PDF entirely in the browser using `html2pdf.js`, rather than generating it on the FastAPI backend with something like WeasyPrint or a headless-Chromium screenshot service.
 
-**Why:** server-side PDF rendering — especially anything backed by headless Chromium — is a heavy dependency to bundle into a serverless function. It bloats the deployment package (working against Vercel's function size limits), adds real cold-start latency, and introduces a whole extra failure surface (missing fonts, sandboxing issues, memory limits) for a feature that's purely cosmetic. Since the report the user wants exported is already rendered as HTML/CSS in the DOM, `html2pdf.js` can turn exactly what's on screen into a PDF client-side, instantly, with zero backend involvement, zero added server cost, and zero risk of it breaking the audit endpoint itself.
+**Why:** server-side PDF rendering — especially anything backed by headless Chromium — is a heavy dependency to add to the backend. It increases memory usage and startup time, and introduces a whole extra failure surface (missing fonts, sandboxing issues, memory limits) for a feature that's purely cosmetic. Since the report the user wants exported is already rendered as HTML/CSS in the DOM, `html2pdf.js` can turn exactly what's on screen into a PDF client-side, instantly, with zero backend involvement, zero added server load, and zero risk of it breaking the audit endpoint itself.
 
-### 2. Graceful timeout and exception handling to prevent serverless hangups
+### 2. Graceful timeout and exception handling around every fetch
 
 Every outbound request in `/api/analyze` is wrapped in a `try`/`except` block with an explicit 8-second timeout, and **every** exception — DNS failures, connection resets, malformed responses, parsing errors — is caught and converted into a structured `AuditResponse` with `success: false`, rather than being allowed to propagate.
 
-**Why:** Vercel serverless functions have a hard execution ceiling (10 seconds on the default plan). If Page Pulse audited an unresponsive or slow-to-respond site with no timeout, the function would hang until Vercel itself killed it — burning the full execution budget and returning a generic platform-level error with no useful information. Setting an 8-second timeout deliberately undercuts that ceiling, so the function always has time to catch the failure and return a clean, informative JSON error instead of letting the platform time it out. Catching broadly (rather than only specific exception types) matters here too: the whole point of an *auditing* tool is that it's pointed at arbitrary, unpredictable third-party URLs, so the failure modes are inherently unbounded — malformed redirects, refused connections, corrupted responses, TLS failures. The contract with the frontend is that this endpoint never crashes and never hangs; it always returns *something* the UI can render.
+**Why:** the whole point of an *auditing* tool is that it's pointed at arbitrary, unpredictable third-party URLs, so the failure modes are inherently unbounded — malformed redirects, refused connections, slow or unresponsive servers, corrupted responses, TLS failures. Without a timeout, a single unresponsive site could hang the request indefinitely and tie up a worker. This decision was originally shaped by an earlier deployment on Vercel, where serverless functions have a hard 10-second execution ceiling — the 8-second timeout was set deliberately under that limit so the function always had time to catch the failure and respond cleanly before the platform itself killed it. The app now runs on Render as a persistent server rather than a serverless function, but the underlying reasoning still holds: catching broadly and always returning a structured response (never letting an exception propagate, never leaving a request hanging) keeps the contract with the frontend simple — this endpoint never crashes and never hangs, it always returns *something* the UI can render.
 
 ### 3. Vanilla JavaScript with CSS-driven 3D cards, not a frontend framework
 
 The frontend is a single static `index.html` file with plain JavaScript and CSS (including the 3D tilt effects on the metric cards), rather than a React or Vue application.
 
-**Why:** the frontend's job here is genuinely simple — take a URL, POST it, render the JSON response into some cards. That doesn't need component state management, a virtual DOM, or client-side routing. Reaching for a framework would mean a build step (bundler config, `node_modules`, a build pipeline to keep in sync with the backend deploy), for a UI that's a handful of DOM updates. Going vanilla means the entire frontend is one file that deploys as a static asset with zero build step — it loads instantly, has no framework runtime to download, and there's no version drift between a frontend build tool and the backend to manage. The 3D perspective effects are pure CSS `transform`/`perspective` driven by a few lines of mouse-tracking JS — a nice-to-have visual layer that doesn't justify pulling in tooling built for managing complex, stateful UIs.
+**Why:** the frontend's job here is genuinely simple — take a URL, POST it, render the JSON response into some cards. That doesn't need component state management, a virtual DOM, or client-side routing. Reaching for a framework would mean a build step (bundler config, `node_modules`, a build pipeline to keep in sync with the backend deploy), for a UI that's a handful of DOM updates. Going vanilla means the entire frontend is one file with no build step at all — FastAPI can serve it directly via a single `FileResponse`, with no separate static-hosting service, no build artifacts to keep in sync, and no framework runtime to download on page load. The 3D perspective effects are pure CSS `transform`/`perspective` driven by a few lines of mouse-tracking JS — a nice-to-have visual layer that doesn't justify pulling in tooling built for managing complex, stateful UIs.
 
 ## Project Structure
 
 ```
 page-pulse/
-├── backend/
-│   ├── main.py                 # FastAPI app: /api/analyze endpoint
-│   ├── test_main.py            # pytest suite (mocked, offline)
-│   ├── requirements.txt        # production dependencies
-│   └── requirements-dev.txt    # test-only dependencies
-├── index.html                  # frontend (static, single file)
-└── vercel.json                 # Vercel routing/function config, if present
+└── backend/
+    ├── main.py                 # FastAPI app: serves index.html at "/", audits at /api/analyze
+    ├── index.html              # frontend (single file, served directly by FastAPI)
+    ├── test_main.py            # pytest suite (mocked, offline)
+    ├── requirements.txt        # production dependencies
+    └── requirements-dev.txt    # test-only dependencies
 ```
 
+## Deployment
+
+Page Pulse is deployed on **Render** as a single web service:
+
+- **Root Directory:** `backend`
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+Because `main.py` serves `index.html` directly via a `FileResponse` at `GET /`, no separate static-site service is needed — one Render web service handles both the UI and the API, at one URL. Pushing to the connected Git branch triggers an automatic rebuild and redeploy.
 ## Deployment
 
 Page Pulse is deployed on Vercel. The FastAPI app in `backend/main.py` is picked up automatically as a Python serverless function, and `index.html` is served as a static asset from the same domain — which is what lets the frontend call `/api/analyze` with a relative path.
