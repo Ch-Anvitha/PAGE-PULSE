@@ -24,18 +24,34 @@ Design notes
 from __future__ import annotations
 
 import logging
+import re
 import time
+from datetime import datetime, timezone
+from io import BytesIO
 from typing import Optional
+from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 from curl_cffi.requests import AsyncSession, RequestsError
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import Timeout as CurlTimeout
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, field_validator
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    HRFlowable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 # ------------------------------------------------------------------------------
 # Logging
@@ -284,6 +300,117 @@ def _elapsed_ms(start: float) -> float:
 
 
 # ------------------------------------------------------------------------------
+# PDF report generation
+# ------------------------------------------------------------------------------
+def _build_findings(data: "AnalyzeResponse") -> list[str]:
+    """Turn raw metrics into a short list of human-readable audit findings."""
+    findings: list[str] = []
+
+    if not data.success:
+        return findings
+
+    if not data.title:
+        findings.append("Missing <title> tag (and no OpenGraph/Twitter fallback found).")
+    if not data.meta_description:
+        findings.append("Missing meta description (and no OpenGraph/Twitter fallback found).")
+    if data.h1_count == 0:
+        findings.append("No <h1> heading found on the page.")
+    elif data.h1_count is not None and data.h1_count > 1:
+        findings.append(f"Multiple <h1> tags found ({data.h1_count}) — search engines expect exactly one.")
+    if data.images_missing_alt:
+        findings.append(f"{data.images_missing_alt} image(s) are missing meaningful alt text.")
+    if data.word_count is not None and data.word_count < 200:
+        findings.append(f"Low visible word count ({data.word_count}) — thin content can hurt SEO ranking.")
+
+    return findings
+
+
+def _sanitize_filename(url: str) -> str:
+    """Derive a safe filename fragment from a URL's hostname."""
+    host = urlparse(url).netloc or urlparse(url).path or "page-pulse-report"
+    host = re.sub(r"^www\.", "", host)
+    return re.sub(r"[^a-zA-Z0-9._-]", "_", host) or "page-pulse-report"
+
+
+def build_pdf_report(data: "AnalyzeResponse") -> bytes:
+    """Render an AnalyzeResponse into a single-page PDF audit report."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        topMargin=0.75 * inch,
+        bottomMargin=0.75 * inch,
+        leftMargin=0.75 * inch,
+        rightMargin=0.75 * inch,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("ReportTitle", parent=styles["Title"], fontSize=20, spaceAfter=4)
+    meta_style = ParagraphStyle("ReportMeta", parent=styles["Normal"], textColor=colors.grey, spaceAfter=16)
+    h2_style = ParagraphStyle("H2", parent=styles["Heading2"], spaceBefore=16, spaceAfter=8)
+    body_style = styles["Normal"]
+
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    story = [
+        Paragraph("Page Pulse Audit Report", title_style),
+        Paragraph(f"{data.url} &nbsp;&bull;&nbsp; Generated {generated_at}", meta_style),
+        HRFlowable(width="100%", color=colors.HexColor("#dddddd")),
+    ]
+
+    if not data.success:
+        story.append(Paragraph("Audit Failed", h2_style))
+        story.append(
+            Paragraph(
+                f"<b>Error type:</b> {data.error_type or 'unknown'}<br/>"
+                f"<b>Details:</b> {data.error or 'No further details available.'}",
+                body_style,
+            )
+        )
+        doc.build(story)
+        return buffer.getvalue()
+
+    summary_rows = [
+        ["HTTP Status", str(data.status_code) if data.status_code is not None else "—"],
+        ["Response Time", f"{data.response_time_ms:.0f} ms" if data.response_time_ms is not None else "—"],
+        ["Title", data.title or "— (missing)"],
+        ["Meta Description", data.meta_description or "— (missing)"],
+        ["H1 Count", str(data.h1_count) if data.h1_count is not None else "—"],
+        ["Images Missing Alt Text", str(data.images_missing_alt) if data.images_missing_alt is not None else "—"],
+        ["Visible Word Count", str(data.word_count) if data.word_count is not None else "—"],
+    ]
+
+    story.append(Paragraph("Summary", h2_style))
+    table = Table(summary_rows, colWidths=[1.8 * inch, 4.2 * inch])
+    table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9.5),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("LINEBELOW", (0, 0), (-1, -2), 0.5, colors.HexColor("#eeeeee")),
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f7f7f7")),
+            ]
+        )
+    )
+    story.append(table)
+
+    findings = _build_findings(data)
+    story.append(Paragraph("Findings", h2_style))
+    if findings:
+        for finding in findings:
+            story.append(Paragraph(f"&bull; {finding}", body_style))
+            story.append(Spacer(1, 4))
+    else:
+        story.append(Paragraph("No issues detected against the checks Page Pulse runs.", body_style))
+
+    doc.build(story)
+    return buffer.getvalue()
+
+
+# ------------------------------------------------------------------------------
 # Endpoints
 # ------------------------------------------------------------------------------
 @app.get("/api/health")
@@ -407,6 +534,32 @@ async def analyze_page(payload: AnalyzeRequest) -> AnalyzeResponse:
             error="An unexpected error occurred while analyzing the page.",
             error_type="unknown_error",
         )
+
+
+@app.post("/api/report")
+async def download_report(payload: AnalyzeResponse) -> Response:
+    """
+    Render a previously-fetched AnalyzeResponse as a downloadable PDF.
+
+    Takes the exact JSON body returned by /api/analyze (success or failure)
+    so the PDF always matches what the caller already saw — no re-fetching
+    the target page, no risk of the page having changed in between.
+    """
+    if not payload.url:
+        raise HTTPException(status_code=422, detail="A non-empty 'url' field is required.")
+
+    try:
+        pdf_bytes = build_pdf_report(payload)
+    except Exception:
+        logger.exception("Failed to generate PDF report for %s", payload.url)
+        raise HTTPException(status_code=500, detail="Could not generate the PDF report.")
+
+    filename = f"page-pulse-{_sanitize_filename(payload.url)}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 if __name__ == "__main__":
