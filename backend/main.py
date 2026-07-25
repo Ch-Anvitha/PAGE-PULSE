@@ -2,6 +2,23 @@
 Page Pulse — Backend API
 ================================================================================
 FastAPI service that audits a URL for performance and content-quality metrics.
+
+Design notes
+------------
+- Uses `curl_cffi.requests.AsyncSession` with browser TLS/JA3 impersonation
+  (`impersonate="chrome124"`) instead of plain httpx/requests. Many enterprise
+  WAFs (Cloudflare, Akamai, Imperva) fingerprint the TLS ClientHello and HTTP/2
+  frame ordering of the client, not just the User-Agent header — a vanilla
+  Python HTTP client gets flagged even with "browser-like" headers. Impersonating
+  a real Chrome build closes that gap.
+- All failure modes (validation, DNS, connection refusal, timeout, WAF block,
+  non-HTML response, parse failure, unknown) are normalized into a single
+  `AnalyzeResponse` shape so the frontend never has to special-case a raw
+  500 or a differently-shaped error body.
+- Metric extraction degrades gracefully: OpenGraph/Twitter fallbacks for
+  title & description, and non-visible DOM regions are stripped before word
+  counting so single-page apps / marketing sites don't get bogus word counts
+  from nav menus, footers, or inline script/style blocks.
 """
 
 from __future__ import annotations
@@ -21,29 +38,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 # ------------------------------------------------------------------------------
-# Logging & Setup
+# Logging
 # ------------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("page_pulse")
-
-# Initialize FastAPI App (Only Once)
-app = FastAPI(
-    title="Page Pulse API",
-    description="Fetches a URL and returns performance + content-quality metrics.",
-    version="2.0.0",
-)
-
-# Configure CORS Middleware (Only Once)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Replace with specific frontend URL in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ------------------------------------------------------------------------------
 # Network / App configuration
@@ -54,6 +55,7 @@ IMPERSONATE_PROFILE = "chrome124"
 
 ALLOWED_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
 
+# Tags whose text content should never be counted as "visible" page content.
 NON_VISIBLE_TAGS = (
     "script",
     "style",
@@ -88,16 +90,33 @@ BROWSER_HEADERS = {
     "Connection": "keep-alive",
 }
 
+app = FastAPI(
+    title="Page Pulse API",
+    description="Fetches a URL and returns performance + content-quality metrics.",
+    version="2.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+
 # ------------------------------------------------------------------------------
 # Schemas
 # ------------------------------------------------------------------------------
 class AnalyzeRequest(BaseModel):
     """Incoming request body for a page audit."""
+
     url: str = Field(..., description="Target URL to analyze.", examples=["https://example.com"])
 
     @field_validator("url")
     @classmethod
     def validate_and_normalize_url(cls, value: str) -> str:
+        """Trim, default the scheme to https, and reject obviously malformed input."""
         value = (value or "").strip()
         if not value:
             raise ValueError("URL cannot be empty.")
@@ -105,6 +124,7 @@ class AnalyzeRequest(BaseModel):
         if not value.lower().startswith(("http://", "https://")):
             value = f"https://{value}"
 
+        # Very cheap sanity check — real reachability is proven by the fetch itself.
         scheme, _, rest = value.partition("://")
         host = rest.split("/", 1)[0]
         if not host or "." not in host:
@@ -115,6 +135,7 @@ class AnalyzeRequest(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     """Unified response shape for both successful and failed audits."""
+
     url: str
     success: bool
     status_code: Optional[int] = None
@@ -127,8 +148,11 @@ class AnalyzeResponse(BaseModel):
     error: Optional[str] = None
     error_type: Optional[str] = None
 
+
 # ------------------------------------------------------------------------------
-# Exception Handlers
+# Exception handlers — guarantee every response, even framework-level errors,
+# matches AnalyzeResponse so the client never has to parse a bare FastAPI
+# error body.
 # ------------------------------------------------------------------------------
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -164,10 +188,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         ).model_dump(),
     )
 
+
 # ------------------------------------------------------------------------------
-# Helpers
+# Metric extraction helpers
 # ------------------------------------------------------------------------------
 def _first_meta_content(soup: BeautifulSoup, *, name: Optional[str] = None, property_: Optional[str] = None) -> Optional[str]:
+    """Return the stripped `content` attribute of the first matching <meta> tag, if any."""
     tag = None
     if property_ is not None:
         tag = soup.find("meta", property=property_) or soup.find("meta", attrs={"name": property_})
@@ -183,6 +209,7 @@ def _first_meta_content(soup: BeautifulSoup, *, name: Optional[str] = None, prop
 
 
 def _extract_title(soup: BeautifulSoup) -> Optional[str]:
+    """<title> first, then og:title, then twitter:title."""
     if soup.title and soup.title.string:
         text = soup.title.get_text(strip=True)
         if text:
@@ -197,6 +224,7 @@ def _extract_title(soup: BeautifulSoup) -> Optional[str]:
 
 
 def _extract_meta_description(soup: BeautifulSoup) -> Optional[str]:
+    """<meta name="description"> first, then og:description, then twitter:description."""
     direct = _first_meta_content(soup, name="description")
     if direct:
         return direct
@@ -210,11 +238,13 @@ def _extract_meta_description(soup: BeautifulSoup) -> Optional[str]:
 
 
 def _count_images_missing_alt(soup: BeautifulSoup) -> int:
+    """An image "has" alt text only if the attribute exists AND is non-empty after stripping."""
     images = soup.find_all("img")
     return sum(1 for img in images if not (img.get("alt") or "").strip())
 
 
 def _count_visible_words(soup: BeautifulSoup) -> int:
+    """Strip non-visible regions (script/style/nav/header/footer/etc.) then count words."""
     for tag in soup.find_all(NON_VISIBLE_TAGS):
         tag.decompose()
 
@@ -223,12 +253,21 @@ def _count_visible_words(soup: BeautifulSoup) -> int:
 
 
 def extract_metrics(html: str) -> dict:
+    """
+    Parse raw HTML and return a dict matching the metric fields of AnalyzeResponse.
+
+    NOTE: image and heading counts are computed BEFORE non-visible tags are
+    stripped, since h1_count/images_missing_alt should reflect the whole
+    document, not just the visible-text subset used for word_count.
+    """
     soup = BeautifulSoup(html, "html.parser")
 
     title = _extract_title(soup)
     meta_description = _extract_meta_description(soup)
     h1_count = len(soup.find_all("h1"))
     images_missing_alt = _count_images_missing_alt(soup)
+
+    # word count strips the tree in place, so compute it last
     word_count = _count_visible_words(soup)
 
     return {
@@ -243,21 +282,22 @@ def extract_metrics(html: str) -> dict:
 def _elapsed_ms(start: float) -> float:
     return round((time.perf_counter() - start) * 1000, 2)
 
+
 # ------------------------------------------------------------------------------
 # Endpoints
 # ------------------------------------------------------------------------------
-@app.get("/")
-def read_root():
-    return {"message": "Page Pulse API is running!"}
-
-
 @app.get("/api/health")
 async def health_check() -> dict:
+    """Lightweight liveness probe."""
     return {"status": "ok"}
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze_page(payload: AnalyzeRequest) -> AnalyzeResponse:
+    """
+    Fetch `payload.url` with a browser-impersonating client and return
+    performance + content-quality metrics, or a structured error.
+    """
     target_url = payload.url
     start = time.perf_counter()
 
