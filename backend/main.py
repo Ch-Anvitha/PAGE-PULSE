@@ -9,8 +9,6 @@ from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from bs4 import BeautifulSoup
 
 app = FastAPI(title="Page Pulse API")
-
-# Completely open CORS to prevent frontend blocking
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,7 +38,6 @@ def normalize_url(raw_url: str) -> str:
         cleaned = f"https://{cleaned}"
     return cleaned
 
-# Added dual routes to catch it regardless of how vercel.json routes the request
 @app.post("/api/analyze")
 @app.post("/analyze")
 async def analyze_url(payload: AuditRequest):
@@ -53,11 +50,6 @@ async def analyze_url(payload: AuditRequest):
     start_time = time.perf_counter()
 
     try:
-        # 8.0 second timeout strictly to beat Vercel's 10s execution limit
-        # impersonate="chrome" matches curl_cffi's TLS/HTTP2 fingerprint (and default
-        # headers) to a real Chrome browser, so sites that block plain httpx/requests
-        # traffic at the handshake level (Cloudflare, Akamai, most enterprise WAFs)
-        # see what looks like an ordinary browser visit instead.
         async with AsyncSession(timeout=8.0, allow_redirects=True, impersonate="chrome") as session:
             response = await session.get(target_url)
 

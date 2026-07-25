@@ -1,13 +1,7 @@
+
 """
-Test suite for Page Pulse's FastAPI backend (main.py).
-
-Runs entirely offline: every test patches `main.AsyncSession` (curl_cffi's
-async client) so no real HTTP request ever leaves the machine. This keeps
-the suite fast and deterministic — results don't depend on any live site
-being up, slow, or blocking us.
-
 Run with:
-    pytest test_main.py -v
+    pytest test_main.py -
 """
 
 import re
@@ -17,15 +11,11 @@ import pytest
 from bs4 import BeautifulSoup
 from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from fastapi.testclient import TestClient
-
 from main import app
 
 client = TestClient(app)
 
-
-# ---------------------------------------------------------------------------
-# Test fixtures / helpers
-# ---------------------------------------------------------------------------
+# Test fixtures 
 
 class FakeResponse:
     """Minimal stand-in for a curl_cffi Response — only the attributes
@@ -57,20 +47,6 @@ def build_mock_session(response=None, exception=None):
 
     return mock_session
 
-
-# Deliberately simple HTML so every expected metric below can be counted
-# by hand rather than re-derived from main.py's own parsing logic.
-#
-#   title              -> "Example Domain"
-#   meta description   -> "This domain is for use in illustrative examples."
-#   h1 count            -> 1  ("Welcome")
-#   images missing alt  -> 2  (banner.png has no alt, icon.png has alt="")
-#   word count           -> 13 (see breakdown below)
-#
-# Visible text after script removal: title + h1 + paragraph text
-#   "Example Domain Welcome This is a simple test page with five words here."
-#   Example(1) Domain(2) Welcome(3) This(4) is(5) a(6) simple(7) test(8)
-#   page(9) with(10) five(11) words(12) here(13)  -> 13 words
 SAMPLE_HTML = """
 <html>
 <head>
@@ -88,10 +64,7 @@ SAMPLE_HTML = """
 </html>
 """
 
-
-# ---------------------------------------------------------------------------
 # 1. Happy path
-# ---------------------------------------------------------------------------
 
 def test_happy_path_returns_full_metrics():
     fake_response = FakeResponse(
@@ -142,10 +115,7 @@ def test_happy_path_handles_missing_title_and_meta_gracefully():
     assert data["meta_description"] is None
     assert data["h1_count"] == 1
 
-
-# ---------------------------------------------------------------------------
 # 2. Failure case: invalid / non-existent domain
-# ---------------------------------------------------------------------------
 
 def test_nonexistent_domain_returns_structured_error_not_a_crash():
     dns_failure = Exception("Could not resolve host: this-domain-does-not-exist.invalid")
@@ -179,10 +149,7 @@ def test_empty_url_is_rejected_without_making_a_request():
     assert data["success"] is False
     assert data["error"] == "URL cannot be empty."
 
-
-# ---------------------------------------------------------------------------
-# 3. Failure case: non-HTML response / timeout
-# ---------------------------------------------------------------------------
+# Failure case: non-HTML response / timeout
 
 def test_non_html_response_is_rejected():
     fake_response = FakeResponse(
@@ -231,10 +198,7 @@ def test_timeout_returns_server_timeout_error():
     assert data["success"] is False
     assert data["error"] == "Server timeout."
 
-
-# ---------------------------------------------------------------------------
 # Sanity check on the mocking approach itself
-# ---------------------------------------------------------------------------
 
 def test_no_real_network_call_is_made_in_happy_path():
     """Guards against someone accidentally removing the patch and the suite
