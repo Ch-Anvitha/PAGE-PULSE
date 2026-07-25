@@ -3,6 +3,7 @@ import re
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from curl_cffi.requests import AsyncSession
 from curl_cffi.requests.exceptions import Timeout as CurlTimeout
@@ -37,6 +38,12 @@ def normalize_url(raw_url: str) -> str:
     if not cleaned.startswith(("http://", "https://")):
         cleaned = f"https://{cleaned}"
     return cleaned
+
+# Serves the frontend directly from this same service, so the whole app
+# (UI + API) lives at one Render URL instead of needing a separate static site.
+@app.get("/")
+async def serve_frontend():
+    return FileResponse("index.html")
 
 @app.post("/api/analyze")
 @app.post("/analyze")
