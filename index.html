@@ -531,7 +531,8 @@
     </footer>
 
     <script>
-        const API_BASE_URL = 'http://127.0.0.1:8000';
+        // Set to empty string so it targets relative API route on deployed domain
+        const API_BASE_URL = '';
 
         document.addEventListener('mousemove', (e) => {
             const circles = document.querySelectorAll('.bg-circle');
@@ -620,7 +621,7 @@
                 loadingState.style.display = 'none';
                 submitBtn.disabled = false;
                 renderError({
-                    error: "Could not connect to FastAPI server. Ensure main.py is running locally.",
+                    error: "Could not connect to FastAPI server. Ensure backend is active.",
                     error_type: "network_failure"
                 });
                 resultsContainer.classList.add('visible');
