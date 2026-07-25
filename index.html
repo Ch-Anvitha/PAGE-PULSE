@@ -8,20 +8,20 @@
     <!-- html2pdf.js for Client-Side PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <!-- Fonts -->
+    <!-- Clean Sans + Elegant Cursive/Serif Accent Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --bg-bone: #F0EDE6;
+            --bg-bone: #F2F0EC;
             --text-black: #0A0A0A;
             --text-muted: #555555;
             --text-light: #888888;
-            --card-white: rgba(255, 255, 255, 0.88);
-            --card-border: rgba(10, 10, 10, 0.1);
-            --card-shadow: rgba(10, 10, 10, 0.12);
+            --card-white: #FFFFFF;
+            --card-border: rgba(10, 10, 10, 0.08);
+            --card-shadow: rgba(10, 10, 10, 0.06);
             --font-display: 'Instrument Serif', serif;
             --font-main: 'Plus Jakarta Sans', sans-serif;
             --font-mono: 'Space Mono', monospace;
@@ -45,30 +45,23 @@
             padding: 4rem 1.5rem;
             position: relative;
             overflow-x: hidden;
-            perspective: 1400px;
+            perspective: 1200px;
         }
 
-        /* --- 3D Floating Spheres Layer --- */
+        /* 3D Floating Circles Layer */
         .interactive-circles-layer {
             position: fixed;
             inset: 0;
             pointer-events: none;
             z-index: 0;
-            transform-style: preserve-3d;
         }
 
         .bg-circle {
             position: absolute;
             border-radius: 50%;
-            /* 3D Sphere Radial Lighting Gradient */
-            background: radial-gradient(circle at 35% 30%, #7A4E31 0%, #3D2213 65%, #1F1008 100%);
+            background-color: #4A2E1B;
             opacity: 0.85;
-            box-shadow: 
-                inset -10px -10px 25px rgba(0, 0, 0, 0.7),
-                inset 10px 10px 20px rgba(255, 255, 255, 0.25),
-                0 25px 45px rgba(0, 0, 0, 0.2);
-            transition: transform 0.1s ease-out;
-            will-change: transform;
+            transition: transform 0.15s cubic-bezier(0.1, 0.9, 0.2, 1);
         }
 
         .circle-1  { width: 280px; height: 280px; top: -80px;  left: -60px; }
@@ -93,14 +86,10 @@
             transform-style: preserve-3d;
         }
 
-        /* --- 3D Header --- */
         header {
             text-align: center;
             margin-bottom: 3.5rem;
             transform-style: preserve-3d;
-            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            padding: 1.5rem;
-            border-radius: 24px;
         }
 
         h1 {
@@ -112,8 +101,6 @@
             margin-bottom: 1.25rem;
             color: var(--text-black);
             font-style: italic;
-            transform: translateZ(40px);
-            text-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
         }
 
         header p {
@@ -123,10 +110,8 @@
             max-width: 520px;
             margin: 0 auto;
             line-height: 1.6;
-            transform: translateZ(25px);
         }
 
-        /* --- 3D Search Bar --- */
         .search-3d-wrapper {
             position: relative;
             margin-bottom: 2.5rem;
@@ -134,30 +119,22 @@
         }
 
         .search-3d-card {
-            background: var(--card-white);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--card-border);
             border-radius: 100px;
             padding: 8px 8px 8px 28px;
             display: flex;
             align-items: center;
-            box-shadow: 
-                0 20px 40px -10px var(--card-shadow),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
-            transition: transform 0.2s ease-out, box-shadow 0.3s ease, border-color 0.3s ease;
+            box-shadow: 0 20px 40px -10px var(--card-shadow);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
             transform-style: preserve-3d;
-            position: relative;
-            overflow: hidden;
         }
 
         .search-3d-card:focus-within {
             border-color: var(--text-black);
-            box-shadow: 
-                0 30px 60px -10px rgba(10, 10, 10, 0.18),
-                0 0 0 1px var(--text-black),
-                inset 0 1px 0 rgba(255, 255, 255, 0.9);
-            transform: translateY(-4px) rotateX(4deg) translateZ(10px);
+            box-shadow: 0 30px 60px -10px rgba(10, 10, 10, 0.12);
+            transform: translateY(-3px) rotateX(2deg);
         }
 
         .search-3d-card input {
@@ -168,8 +145,6 @@
             color: var(--text-black);
             font-family: var(--font-mono);
             font-size: 0.95rem;
-            transform: translateZ(25px);
-            z-index: 2;
         }
 
         .search-3d-card input::placeholder {
@@ -187,46 +162,22 @@
             font-weight: 600;
             font-size: 0.9rem;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             gap: 10px;
-            transform: translateZ(30px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-            z-index: 2;
+            transform: translateZ(10px);
         }
 
         .search-3d-card button:hover {
-            transform: translateZ(40px) scale(1.05);
+            transform: translateZ(15px) scale(1.03);
             background: #222222;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .search-3d-card button:active {
-            transform: translateZ(20px) scale(0.98);
         }
 
         .search-3d-card button:disabled {
             opacity: 0.4;
             cursor: not-allowed;
             transform: none;
-            box-shadow: none;
-        }
-
-        /* --- Dynamic Dynamic Specular Light Overlay --- */
-        .card-glare {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: inherit;
-            background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 75%);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 1;
-            mix-blend-mode: overlay;
         }
 
         .loading-state {
@@ -286,7 +237,6 @@
             border-radius: 100px;
             background: #FFFFFF;
             border: 1px solid var(--card-border);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
         }
 
         .dot {
@@ -311,45 +261,38 @@
             border-radius: 100px;
             cursor: pointer;
             transition: all 0.25s ease;
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 12px var(--card-shadow);
         }
 
         .download-btn:hover {
             background-color: #222222;
-            transform: translateY(-2px) translateZ(10px);
-            box-shadow: 0 10px 24px rgba(10, 10, 10, 0.22);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(10, 10, 10, 0.15);
         }
 
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 1.25rem;
-            perspective: 1000px;
         }
 
-        /* --- Enhanced 3D Metric Cards --- */
         .card-3d {
-            background: var(--card-white);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             border: 1px solid var(--card-border);
             border-radius: 20px;
             padding: 1.75rem;
             position: relative;
             transform-style: preserve-3d;
             transition: transform 0.15s ease-out, border-color 0.3s ease, box-shadow 0.3s ease;
-            box-shadow: 
-                0 15px 35px var(--card-shadow),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            box-shadow: 0 15px 35px var(--card-shadow);
             cursor: pointer;
             overflow: hidden;
         }
 
         .card-3d:hover {
-            border-color: rgba(10, 10, 10, 0.3);
-            box-shadow: 
-                0 30px 60px rgba(10, 10, 10, 0.16),
-                inset 0 1px 0 rgba(255, 255, 255, 1);
+            border-color: rgba(10, 10, 10, 0.25);
+            box-shadow: 0 25px 50px rgba(10, 10, 10, 0.1);
         }
 
         .card-3d.full-width {
@@ -361,9 +304,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 0.85rem;
-            transform: translateZ(20px);
-            position: relative;
-            z-index: 2;
+            transform: translateZ(15px);
         }
 
         .card-label {
@@ -379,8 +320,7 @@
             font-size: 0.65rem;
             color: var(--text-black);
             opacity: 0;
-            transition: opacity 0.2s ease, transform 0.2s ease;
-            transform: translateZ(25px);
+            transition: opacity 0.2s ease;
         }
 
         .card-3d:hover .copy-hint {
@@ -389,14 +329,11 @@
 
         .card-value {
             font-family: var(--font-display);
-            font-size: 3.4rem;
+            font-size: 3.2rem;
             font-weight: 400;
             color: var(--text-black);
             line-height: 1;
-            transform: translateZ(35px);
-            position: relative;
-            z-index: 2;
-            text-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            transform: translateZ(25px);
         }
 
         .card-text {
@@ -404,9 +341,7 @@
             color: var(--text-black);
             line-height: 1.5;
             font-weight: 400;
-            transform: translateZ(28px);
-            position: relative;
-            z-index: 2;
+            transform: translateZ(20px);
         }
 
         .toast {
@@ -423,7 +358,7 @@
             opacity: 0;
             pointer-events: none;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             z-index: 100;
         }
 
@@ -488,12 +423,12 @@
         }
 
         footer a:hover {
-            transform: translateY(-3px) scale(1.02);
+            transform: translateY(-2px);
             border-color: var(--text-black);
-            box-shadow: 0 18px 35px rgba(10, 10, 10, 0.15);
+            box-shadow: 0 15px 30px rgba(10, 10, 10, 0.12);
         }
 
-        /* --- Clean Styling for PDF Export --- */
+        /* Dedicated High-Quality PDF Export Styling */
         .pdf-export-mode {
             background: #FAF9F6 !important;
             padding: 25px !important;
@@ -514,8 +449,7 @@
             margin-bottom: 12px !important;
         }
 
-        .pdf-export-mode .copy-hint,
-        .pdf-export-mode .card-glare {
+        .pdf-export-mode .copy-hint {
             display: none !important;
         }
 
@@ -549,25 +483,24 @@
 </head>
 <body>
 
-    <!-- 3D Spherical Ambient Layer -->
     <div class="interactive-circles-layer" id="circlesLayer">
-        <div class="bg-circle circle-1"  data-speed="0.04" data-z="-50"></div>
-        <div class="bg-circle circle-2"  data-speed="-0.03" data-z="80"></div>
-        <div class="bg-circle circle-3"  data-speed="0.05" data-z="-30"></div>
-        <div class="bg-circle circle-4"  data-speed="-0.04" data-z="100"></div>
-        <div class="bg-circle circle-5"  data-speed="0.03" data-z="-80"></div>
-        <div class="bg-circle circle-6"  data-speed="-0.05" data-z="60"></div>
-        <div class="bg-circle circle-7"  data-speed="0.04" data-z="-20"></div>
-        <div class="bg-circle circle-8"  data-speed="-0.03" data-z="90"></div>
-        <div class="bg-circle circle-9"  data-speed="0.05" data-z="-40"></div>
-        <div class="bg-circle circle-10" data-speed="-0.04" data-z="110"></div>
-        <div class="bg-circle circle-11" data-speed="0.03" data-z="-60"></div>
-        <div class="bg-circle circle-12" data-speed="-0.05" data-z="70"></div>
-        <div class="bg-circle circle-13" data-speed="0.04" data-z="-30"></div>
+        <div class="bg-circle circle-1"  data-speed="0.03"></div>
+        <div class="bg-circle circle-2"  data-speed="-0.02"></div>
+        <div class="bg-circle circle-3"  data-speed="0.04"></div>
+        <div class="bg-circle circle-4"  data-speed="-0.03"></div>
+        <div class="bg-circle circle-5"  data-speed="0.02"></div>
+        <div class="bg-circle circle-6"  data-speed="-0.04"></div>
+        <div class="bg-circle circle-7"  data-speed="0.03"></div>
+        <div class="bg-circle circle-8"  data-speed="-0.02"></div>
+        <div class="bg-circle circle-9"  data-speed="0.04"></div>
+        <div class="bg-circle circle-10" data-speed="-0.03"></div>
+        <div class="bg-circle circle-11" data-speed="0.02"></div>
+        <div class="bg-circle circle-12" data-speed="-0.04"></div>
+        <div class="bg-circle circle-13" data-speed="0.03"></div>
     </div>
 
     <div class="container">
-        <header id="mainHeader">
+        <header>
             <h1>Page Pulse</h1>
             <p>Auditing speed, structural markup, and accessibility metrics with quiet precision.</p>
         </header>
@@ -575,7 +508,6 @@
         <div class="search-3d-wrapper">
             <form id="auditForm" onsubmit="event.preventDefault(); runAudit();">
                 <div class="search-3d-card" id="searchCard">
-                    <div class="card-glare"></div>
                     <input type="text" id="urlInput" placeholder="https://example.com" autocomplete="off" spellcheck="false" required>
                     <button type="submit" id="submitBtn">
                         <span>Analyze</span>
@@ -601,7 +533,6 @@
     <script>
         const API_BASE_URL = 'http://127.0.0.1:8000';
 
-        // --- 3D Mouse Parallax Effect for Spheres ---
         document.addEventListener('mousemove', (e) => {
             const circles = document.querySelectorAll('.bg-circle');
             const centerX = window.innerWidth / 2;
@@ -612,27 +543,15 @@
 
             circles.forEach((circle) => {
                 const speed = parseFloat(circle.getAttribute('data-speed')) || 0.03;
-                const baseZ = parseFloat(circle.getAttribute('data-z')) || 0;
+                const moveX = deltaX * speed * 1.6;
+                const moveY = deltaY * speed * 1.6;
+                const rotate = (deltaX + deltaY) * speed * 0.25;
                 
-                const moveX = deltaX * speed * 2;
-                const moveY = deltaY * speed * 2;
-                const rotate = (deltaX + deltaY) * speed * 0.3;
-                
-                circle.style.transform = `translate3d(${moveX}px, ${moveY}px, ${baseZ}px) rotate(${rotate}deg)`;
+                circle.style.transform = `translate3d(${moveX}px, ${moveY}px, 0px) rotate(${rotate}deg)`;
             });
         });
 
-        // --- Interactive 3D Card Parallax & Dynamic Light Glare ---
         function attach3DEffect(element) {
-            // Append dynamic glare overlay if not already present
-            if (!element.querySelector('.card-glare')) {
-                const glare = document.createElement('div');
-                glare.className = 'card-glare';
-                element.appendChild(glare);
-            }
-
-            const glare = element.querySelector('.card-glare');
-
             element.addEventListener('mousemove', (e) => {
                 const rect = element.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -641,30 +560,18 @@
                 const centerX = rect.width / 2;
                 const centerY = rect.height / 2;
                 
-                // Tilt rotation angles
-                const rotateX = ((y - centerY) / centerY) * -12;
-                const rotateY = ((x - centerX) / centerX) * 12;
+                const rotateX = ((y - centerY) / centerY) * -8;
+                const rotateY = ((x - centerX) / centerX) * 8;
 
-                element.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(12px)`;
-
-                // Dynamic light glare position
-                if (glare) {
-                    glare.style.opacity = '1';
-                    glare.style.background = `radial-gradient(circle at ${x}px ${y}px, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 70%)`;
-                }
+                element.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
             });
 
             element.addEventListener('mouseleave', () => {
-                element.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)`;
-                if (glare) {
-                    glare.style.opacity = '0';
-                }
+                element.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
             });
         }
 
-        // Attach 3D parallax to search bar and header
         attach3DEffect(document.getElementById('searchCard'));
-        attach3DEffect(document.getElementById('mainHeader'));
 
         async function runAudit() {
             const urlInput = document.getElementById('urlInput').value.trim();
