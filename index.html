@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Pulse</title>
+    
+    <!-- html2pdf.js for Client-Side PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <!-- Clean Sans + Elegant Cursive/Serif Accent Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-bone: #F2F0EC;
+            --text-black: #0A0A0A;
+            --text-muted: #555555;
+            --text-light: #888888;
+            --card-white: #FFFFFF;
+            --card-border: rgba(10, 10, 10, 0.08);
+            --card-shadow: rgba(10, 10, 10, 0.06);
+            --font-display: 'Instrument Serif', serif;
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-bone);
+            color: var(--text-black);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4rem 1.5rem;
+            position: relative;
+            overflow-x: hidden;
+            perspective: 1200px;
+        }
+
+        /* 3D Floating Circles Layer */
+        .interactive-circles-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-circle {
+            position: absolute;
+            border-radius: 50%;
+            background-color: #4A2E1B;
+            opacity: 0.85;
+            transition: transform 0.15s cubic-bezier(0.1, 0.9, 0.2, 1);
+        }
+
+        .circle-1  { width: 280px; height: 280px; top: -80px;  left: -60px; }
+        .circle-2  { width: 220px; height: 220px; top: -50px;  left: 32%; }
+        .circle-3  { width: 240px; height: 240px; top: -70px;  right: 25%; }
+        .circle-4  { width: 300px; height: 300px; top: -90px;  right: -80px; }
+        .circle-5  { width: 200px; height: 200px; top: 22%;    left: 12%; }
+        .circle-6  { width: 220px; height: 220px; top: 20%;    right: 12%; }
+        .circle-7  { width: 240px; height: 240px; top: 50%;    left: -80px; }
+        .circle-8  { width: 210px; height: 220px; top: 48%;    left: 22%; }
+        .circle-9  { width: 230px; height: 230px; top: 48%;    right: 20%; }
+        .circle-10 { width: 260px; height: 260px; top: 52%;    right: -90px; }
+        .circle-11 { width: 250px; height: 250px; bottom: -80px; left: 10%; }
+        .circle-12 { width: 220px; height: 220px; bottom: -60px; left: 42%; }
+        .circle-13 { width: 280px; height: 280px; bottom: -90px; right: 5%; }
+
+        .container {
+            width: 100%;
+            max-width: 860px;
+            margin: auto 0;
+            z-index: 1;
+            transform-style: preserve-3d;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+            transform-style: preserve-3d;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: clamp(4.2rem, 9vw, 6.4rem);
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            line-height: 0.95;
+            margin-bottom: 1.25rem;
+            color: var(--text-black);
+            font-style: italic;
+        }
+
+        header p {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            max-width: 520px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .search-3d-wrapper {
+            position: relative;
+            margin-bottom: 2.5rem;
+            perspective: 1000px;
+        }
+
+        .search-3d-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 100px;
+            padding: 8px 8px 8px 28px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 20px 40px -10px var(--card-shadow);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+            transform-style: preserve-3d;
+        }
+
+        .search-3d-card:focus-within {
+            border-color: var(--text-black);
+            box-shadow: 0 30px 60px -10px rgba(10, 10, 10, 0.12);
+            transform: translateY(-3px) rotateX(2deg);
+        }
+
+        .search-3d-card input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-black);
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+        }
+
+        .search-3d-card input::placeholder {
+            color: var(--text-light);
+        }
+
+        .search-3d-card button {
+            background: var(--text-black);
+            color: #FFFFFF;
+            border: none;
+            outline: none;
+            padding: 1.1rem 2.4rem;
+            border-radius: 100px;
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateZ(10px);
+        }
+
+        .search-3d-card button:hover {
+            transform: translateZ(15px) scale(1.03);
+            background: #222222;
+        }
+
+        .search-3d-card button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading-state {
+            display: none;
+            text-align: center;
+            margin-top: 3.5rem;
+        }
+
+        .loading-text {
+            font-family: var(--font-display);
+            font-style: italic;
+            font-size: 1.6rem;
+            color: var(--text-black);
+            letter-spacing: 0.05em;
+        }
+
+        #resultsContainer {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        #resultsContainer.visible {
+            display: block;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1.25rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .report-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .report-url {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            padding: 0.4rem 1.1rem;
+            border-radius: 100px;
+            background: #FFFFFF;
+            border: 1px solid var(--card-border);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            background: var(--text-black);
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: var(--text-black);
+            color: #FFFFFF;
+            border: 1px solid var(--text-black);
+            padding: 0.6rem 1.2rem;
+            font-family: var(--font-main);
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px var(--card-shadow);
+        }
+
+        .download-btn:hover {
+            background-color: #222222;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(10, 10, 10, 0.15);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .card-3d {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 1.75rem;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.15s ease-out, border-color 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 15px 35px var(--card-shadow);
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .card-3d:hover {
+            border-color: rgba(10, 10, 10, 0.25);
+            box-shadow: 0 25px 50px rgba(10, 10, 10, 0.1);
+        }
+
+        .card-3d.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.85rem;
+            transform: translateZ(15px);
+        }
+
+        .card-label {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+        }
+
+        .copy-hint {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-black);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .card-3d:hover .copy-hint {
+            opacity: 1;
+        }
+
+        .card-value {
+            font-family: var(--font-display);
+            font-size: 3.2rem;
+            font-weight: 400;
+            color: var(--text-black);
+            line-height: 1;
+            transform: translateZ(25px);
+        }
+
+        .card-text {
+            font-size: 1.1rem;
+            color: var(--text-black);
+            line-height: 1.5;
+            font-weight: 400;
+            transform: translateZ(20px);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(30px);
+            background: var(--text-black);
+            color: #FFFFFF;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 100px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .error-card {
+            background: #FFFFFF;
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 1.25rem;
+            box-shadow: 0 15px 35px var(--card-shadow);
+        }
+
+        .error-card .icon {
+            color: var(--text-black);
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .error-card h4 {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-black);
+            margin-bottom: 0.4rem;
+        }
+
+        .error-card p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        footer {
+            margin-top: 4rem;
+            text-align: center;
+            z-index: 2;
+        }
+
+        footer a {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-black);
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            transition: all 0.3s ease;
+            display: inline-block;
+            padding: 0.8rem 1.8rem;
+            border-radius: 100px;
+            background: #FFFFFF;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 10px 25px var(--card-shadow);
+        }
+
+        footer a:hover {
+            transform: translateY(-2px);
+            border-color: var(--text-black);
+            box-shadow: 0 15px 30px rgba(10, 10, 10, 0.12);
+        }
+
+        /* Dedicated High-Quality PDF Export Styling */
+        .pdf-export-mode {
+            background: #FAF9F6 !important;
+            padding: 25px !important;
+            border-radius: 16px !important;
+        }
+
+        .pdf-export-mode * {
+            transform: none !important;
+            backdrop-filter: none !important;
+            box-shadow: none !important;
+        }
+
+        .pdf-export-mode .card-3d {
+            background: #FFFFFF !important;
+            border: 1.5px solid #E0E0E0 !important;
+            border-radius: 14px !important;
+            padding: 18px !important;
+            margin-bottom: 12px !important;
+        }
+
+        .pdf-export-mode .copy-hint {
+            display: none !important;
+        }
+
+        .pdf-title-banner {
+            display: none;
+        }
+
+        .pdf-export-mode .pdf-title-banner {
+            display: block;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #0A0A0A;
+        }
+
+        .pdf-title-banner h2 {
+            font-family: var(--font-display);
+            font-size: 2.2rem;
+            font-style: italic;
+            color: #0A0A0A;
+            margin-bottom: 4px;
+        }
+
+        .pdf-title-banner p {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: #666666;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="interactive-circles-layer" id="circlesLayer">
+        <div class="bg-circle circle-1"  data-speed="0.03"></div>
+        <div class="bg-circle circle-2"  data-speed="-0.02"></div>
+        <div class="bg-circle circle-3"  data-speed="0.04"></div>
+        <div class="bg-circle circle-4"  data-speed="-0.03"></div>
+        <div class="bg-circle circle-5"  data-speed="0.02"></div>
+        <div class="bg-circle circle-6"  data-speed="-0.04"></div>
+        <div class="bg-circle circle-7"  data-speed="0.03"></div>
+        <div class="bg-circle circle-8"  data-speed="-0.02"></div>
+        <div class="bg-circle circle-9"  data-speed="0.04"></div>
+        <div class="bg-circle circle-10" data-speed="-0.03"></div>
+        <div class="bg-circle circle-11" data-speed="0.02"></div>
+        <div class="bg-circle circle-12" data-speed="-0.04"></div>
+        <div class="bg-circle circle-13" data-speed="0.03"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Page Pulse</h1>
+            <p>Auditing speed, structural markup, and accessibility metrics with quiet precision.</p>
+        </header>
+
+        <div class="search-3d-wrapper">
+            <form id="auditForm" onsubmit="event.preventDefault(); runAudit();">
+                <div class="search-3d-card" id="searchCard">
+                    <input type="text" id="urlInput" placeholder="https://example.com" autocomplete="off" spellcheck="false" required>
+                    <button type="submit" id="submitBtn">
+                        <span>Analyze</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="loading-state" id="loadingState">
+            <div class="loading-text" id="loadingText">Analyzing page structure...</div>
+        </div>
+
+        <div id="resultsContainer"></div>
+    </div>
+
+    <div class="toast" id="toast">Copied to clipboard</div>
+
+    <footer>
+        <a href="https://digitalheroesco.com" target="_blank" rel="noopener noreferrer">Built for Digital Heroes Training Task</a>
+    </footer>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:8000';
+
+        document.addEventListener('mousemove', (e) => {
+            const circles = document.querySelectorAll('.bg-circle');
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            
+            const deltaX = e.clientX - centerX;
+            const deltaY = e.clientY - centerY;
+
+            circles.forEach((circle) => {
+                const speed = parseFloat(circle.getAttribute('data-speed')) || 0.03;
+                const moveX = deltaX * speed * 1.6;
+                const moveY = deltaY * speed * 1.6;
+                const rotate = (deltaX + deltaY) * speed * 0.25;
+                
+                circle.style.transform = `translate3d(${moveX}px, ${moveY}px, 0px) rotate(${rotate}deg)`;
+            });
+        });
+
+        function attach3DEffect(element) {
+            element.addEventListener('mousemove', (e) => {
+                const rect = element.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const rotateX = ((y - centerY) / centerY) * -8;
+                const rotateY = ((x - centerX) / centerX) * 8;
+
+                element.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
+            });
+
+            element.addEventListener('mouseleave', () => {
+                element.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+            });
+        }
+
+        attach3DEffect(document.getElementById('searchCard'));
+
+        async function runAudit() {
+            const urlInput = document.getElementById('urlInput').value.trim();
+            const resultsContainer = document.getElementById('resultsContainer');
+            const loadingState = document.getElementById('loadingState');
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingText = document.getElementById('loadingText');
+
+            if (!urlInput) return;
+
+            submitBtn.disabled = true;
+            resultsContainer.classList.remove('visible');
+            resultsContainer.innerHTML = '';
+            loadingState.style.display = 'block';
+
+            const steps = ["Analyzing page structure...", "Parsing DOM elements...", "Checking image accessibility..."];
+            let stepIdx = 0;
+            loadingText.innerText = steps[0];
+            const interval = setInterval(() => {
+                stepIdx = (stepIdx + 1) % steps.length;
+                loadingText.innerText = steps[stepIdx];
+            }, 600);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: urlInput })
+                });
+
+                const data = await response.json();
+                clearInterval(interval);
+                loadingState.style.display = 'none';
+                submitBtn.disabled = false;
+
+                if (!data.success) {
+                    renderError(data);
+                } else {
+                    renderMetrics(data);
+                }
+
+                resultsContainer.classList.add('visible');
+
+            } catch (err) {
+                clearInterval(interval);
+                loadingState.style.display = 'none';
+                submitBtn.disabled = false;
+                renderError({
+                    error: "Could not connect to FastAPI server. Ensure main.py is running locally.",
+                    error_type: "network_failure"
+                });
+                resultsContainer.classList.add('visible');
+            }
+        }
+
+        function renderError(data) {
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = `
+                <div class="error-card">
+                    <div class="icon">!</div>
+                    <div>
+                        <h4>${(data.error_type || 'error').replace('_', ' ')}</h4>
+                        <p>${escapeHtml(data.error || 'An error occurred during audit execution.')}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMetrics(data) {
+            const container = document.getElementById('resultsContainer');
+
+            container.innerHTML = `
+                <div class="pdf-title-banner">
+                    <h2>Page Pulse</h2>
+                    <p>Technical Website Audit Report • Generated ${new Date().toLocaleDateString()}</p>
+                </div>
+
+                <div class="report-header">
+                    <div class="report-header-left">
+                        <div class="report-url">${escapeHtml(data.url)}</div>
+                        <div class="status-badge">
+                            <span class="dot"></span>
+                            <span>HTTP ${data.status_code} • ${data.response_time_ms} ms</span>
+                        </div>
+                    </div>
+                    <button id="downloadPdfBtn" class="download-btn" onclick="downloadPdfReport()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download PDF
+                    </button>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="card-3d full-width" onclick="copyToClipboard('${escapeHtml(data.title || '')}', 'Title')">
+                        <div class="card-header">
+                            <span class="card-label">Document Title</span>
+                            <span class="copy-hint">CLICK TO COPY</span>
+                        </div>
+                        <div class="card-text">${escapeHtml(data.title || 'No title tag present')}</div>
+                    </div>
+
+                    <div class="card-3d full-width" onclick="copyToClipboard('${escapeHtml(data.meta_description || '')}', 'Meta Description')">
+                        <div class="card-header">
+                            <span class="card-label">Meta Description</span>
+                            <span class="copy-hint">CLICK TO COPY</span>
+                        </div>
+                        <div class="card-text">${escapeHtml(data.meta_description || 'No meta description found')}</div>
+                    </div>
+
+                    <div class="card-3d">
+                        <div class="card-header">
+                            <span class="card-label">H1 Headings</span>
+                        </div>
+                        <div class="card-value">${data.h1_count}</div>
+                    </div>
+
+                    <div class="card-3d">
+                        <div class="card-header">
+                            <span class="card-label">Images Missing Alt</span>
+                        </div>
+                        <div class="card-value">${data.images_missing_alt}</div>
+                    </div>
+
+                    <div class="card-3d">
+                        <div class="card-header">
+                            <span class="card-label">Approximate Words</span>
+                        </div>
+                        <div class="card-value">${data.word_count ? data.word_count.toLocaleString() : 0}</div>
+                    </div>
+                </div>
+            `;
+
+            document.querySelectorAll('.card-3d').forEach(attach3DEffect);
+        }
+
+        function downloadPdfReport() {
+            const reportElement = document.getElementById("resultsContainer");
+            const targetUrl = document.getElementById("urlInput").value.trim() || "audit-report";
+            
+            const sanitizedFileName = targetUrl
+                .replace(/^https?:\/\//, '')
+                .replace(/[^a-zA-Z0-9]/g, '-')
+                .replace(/-+/g, '-') + '-audit-report.pdf';
+
+            const btn = document.getElementById("downloadPdfBtn");
+            btn.style.visibility = "hidden";
+
+            // Temporarily apply printable clean styles for html2pdf
+            reportElement.classList.add("pdf-export-mode");
+
+            const options = {
+                margin:       [0.4, 0.4, 0.4, 0.4],
+                filename:     sanitizedFileName,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#FAF9F6' },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            html2pdf().set(options).from(reportElement).save().then(() => {
+                btn.style.visibility = "visible";
+                reportElement.classList.remove("pdf-export-mode");
+            });
+        }
+
+        function copyToClipboard(text, label) {
+            if (!text) return;
+            navigator.clipboard.writeText(text);
+            showToast(`Copied ${label} to clipboard`);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2200);
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
+        }
+    </script>
+</body>
+</html>
