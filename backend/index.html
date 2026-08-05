@@ -1,17 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page Pulse</title>
-    
-    <!-- Client-Side PDF Generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
-    <style>
+<style>
         :root {
             --bg-bone: #F2F0EC;
             --text-black: #0A0A0A;
@@ -92,7 +79,7 @@
 
         h1 {
             font-family: var(--font-display);
-            font-size: clamp(4.2rem, 9vw, 6.4rem);
+            font-size: clamp(3.5rem, 9vw, 6.4rem);
             font-weight: 400;
             letter-spacing: -0.02em;
             line-height: 0.95;
@@ -143,6 +130,7 @@
             color: var(--text-black);
             font-family: var(--font-mono);
             font-size: 0.95rem;
+            min-width: 0; /* Prevents input flex blowout on mobile */
         }
 
         .search-3d-card input::placeholder {
@@ -165,6 +153,7 @@
             align-items: center;
             gap: 10px;
             transform: translateZ(10px);
+            white-space: nowrap;
         }
 
         .search-3d-card button:hover {
@@ -216,6 +205,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            max-width: 100%;
         }
 
         .report-url {
@@ -235,6 +225,7 @@
             border-radius: 100px;
             background: #FFFFFF;
             border: 1px solid var(--card-border);
+            width: fit-content;
         }
 
         .dot {
@@ -270,7 +261,7 @@
 
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 1.25rem;
         }
 
@@ -340,6 +331,7 @@
             line-height: 1.5;
             font-weight: 400;
             transform: translateZ(20px);
+            word-break: break-word;
         }
 
         .toast {
@@ -396,6 +388,7 @@
             font-size: 0.95rem;
             color: var(--text-muted);
             line-height: 1.5;
+            word-break: break-word;
         }
 
         footer {
@@ -406,7 +399,7 @@
 
         footer a {
             font-family: var(--font-mono);
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             font-weight: 700;
             color: var(--text-black);
             text-decoration: none;
@@ -424,6 +417,57 @@
             transform: translateY(-2px);
             border-color: var(--text-black);
             box-shadow: 0 15px 30px rgba(10, 10, 10, 0.12);
+        }
+
+        /* Responsive Breakpoints for Mobile & Tablet Optimization */
+        @media (max-width: 768px) {
+            body {
+                padding: 2rem 1rem;
+            }
+
+            header {
+                margin-bottom: 2.5rem;
+            }
+
+            .search-3d-card {
+                padding: 6px 6px 6px 16px;
+                border-radius: 30px;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .search-3d-card input {
+                width: 100%;
+                padding: 10px 0;
+                font-size: 0.9rem;
+            }
+
+            .search-3d-card button {
+                width: 100%;
+                justify-content: center;
+                padding: 0.9rem 1.5rem;
+                border-radius: 20px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .report-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .download-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            body {
+                padding: 3rem 2rem;
+            }
         }
 
         /* Dedicated High-Quality PDF Export Styling */
@@ -478,286 +522,3 @@
             letter-spacing: 0.08em;
         }
     </style>
-</head>
-<body>
-
-    <div class="interactive-circles-layer" id="circlesLayer">
-        <div class="bg-circle circle-1"  data-speed="0.03"></div>
-        <div class="bg-circle circle-2"  data-speed="-0.02"></div>
-        <div class="bg-circle circle-3"  data-speed="0.04"></div>
-        <div class="bg-circle circle-4"  data-speed="-0.03"></div>
-        <div class="bg-circle circle-5"  data-speed="0.02"></div>
-        <div class="bg-circle circle-6"  data-speed="-0.04"></div>
-        <div class="bg-circle circle-7"  data-speed="0.03"></div>
-        <div class="bg-circle circle-8"  data-speed="-0.02"></div>
-        <div class="bg-circle circle-9"  data-speed="0.04"></div>
-        <div class="bg-circle circle-10" data-speed="-0.03"></div>
-        <div class="bg-circle circle-11" data-speed="0.02"></div>
-        <div class="bg-circle circle-12" data-speed="-0.04"></div>
-        <div class="bg-circle circle-13" data-speed="0.03"></div>
-    </div>
-
-    <div class="container">
-        <header>
-            <h1>Page Pulse</h1>
-            <p>Auditing speed, structural markup, and accessibility metrics with quiet precision.</p>
-        </header>
-
-        <div class="search-3d-wrapper">
-            <form id="auditForm" onsubmit="event.preventDefault(); runAudit();">
-                <div class="search-3d-card" id="searchCard">
-                    <input type="text" id="urlInput" placeholder="https://example.com" autocomplete="off" spellcheck="false" required>
-                    <button type="submit" id="submitBtn">
-                        <span>Analyze</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <div class="loading-state" id="loadingState">
-            <div class="loading-text" id="loadingText">Analyzing page structure...</div>
-        </div>
-
-        <div id="resultsContainer"></div>
-    </div>
-
-    <div class="toast" id="toast">Copied to clipboard</div>
-
-    <footer>
-        <a href="https://digitalheroesco.com" target="_blank" rel="noopener noreferrer">Built for Digital Heroes Training Task</a>
-    </footer>
-
-    <script>
-        // Set to empty string so it targets relative API route on deployed domain
-        const API_BASE_URL = 'https://page-pulse-7bu6.onrender.com';
-
-        document.addEventListener('mousemove', (e) => {
-            const circles = document.querySelectorAll('.bg-circle');
-            const centerX = window.innerWidth / 2;
-            const centerY = window.innerHeight / 2;
-            
-            const deltaX = e.clientX - centerX;
-            const deltaY = e.clientY - centerY;
-
-            circles.forEach((circle) => {
-                const speed = parseFloat(circle.getAttribute('data-speed')) || 0.03;
-                const moveX = deltaX * speed * 1.6;
-                const moveY = deltaY * speed * 1.6;
-                const rotate = (deltaX + deltaY) * speed * 0.25;
-                
-                circle.style.transform = `translate3d(${moveX}px, ${moveY}px, 0px) rotate(${rotate}deg)`;
-            });
-        });
-
-        function attach3DEffect(element) {
-            element.addEventListener('mousemove', (e) => {
-                const rect = element.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                
-                const rotateX = ((y - centerY) / centerY) * -8;
-                const rotateY = ((x - centerX) / centerX) * 8;
-
-                element.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
-            });
-
-            element.addEventListener('mouseleave', () => {
-                element.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-            });
-        }
-
-        attach3DEffect(document.getElementById('searchCard'));
-
-        async function runAudit() {
-            const urlInput = document.getElementById('urlInput').value.trim();
-            const resultsContainer = document.getElementById('resultsContainer');
-            const loadingState = document.getElementById('loadingState');
-            const submitBtn = document.getElementById('submitBtn');
-            const loadingText = document.getElementById('loadingText');
-
-            if (!urlInput) return;
-
-            submitBtn.disabled = true;
-            resultsContainer.classList.remove('visible');
-            resultsContainer.innerHTML = '';
-            loadingState.style.display = 'block';
-
-            const steps = ["Analyzing page structure...", "Parsing DOM elements...", "Checking image accessibility..."];
-            let stepIdx = 0;
-            loadingText.innerText = steps[0];
-            const interval = setInterval(() => {
-                stepIdx = (stepIdx + 1) % steps.length;
-                loadingText.innerText = steps[stepIdx];
-            }, 600);
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/analyze`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: urlInput })
-                });
-
-                const data = await response.json();
-                clearInterval(interval);
-                loadingState.style.display = 'none';
-                submitBtn.disabled = false;
-
-                if (!data.success) {
-                    renderError(data);
-                } else {
-                    renderMetrics(data);
-                }
-
-                resultsContainer.classList.add('visible');
-
-            } catch (err) {
-                clearInterval(interval);
-                loadingState.style.display = 'none';
-                submitBtn.disabled = false;
-                renderError({
-                    error: "Could not connect to FastAPI server. Ensure backend is active.",
-                    error_type: "network_failure"
-                });
-                resultsContainer.classList.add('visible');
-            }
-        }
-
-        function renderError(data) {
-            const container = document.getElementById('resultsContainer');
-            container.innerHTML = `
-                <div class="error-card">
-                    <div class="icon">!</div>
-                    <div>
-                        <h4>${(data.error_type || 'error').replace('_', ' ')}</h4>
-                        <p>${escapeHtml(data.error || 'An error occurred during audit execution.')}</p>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderMetrics(data) {
-            const container = document.getElementById('resultsContainer');
-
-            container.innerHTML = `
-                <div class="pdf-title-banner">
-                    <h2>Page Pulse</h2>
-                    <p>Technical Website Audit Report • Generated ${new Date().toLocaleDateString()}</p>
-                </div>
-
-                <div class="report-header">
-                    <div class="report-header-left">
-                        <div class="report-url">${escapeHtml(data.url)}</div>
-                        <div class="status-badge">
-                            <span class="dot"></span>
-                            <span>HTTP ${data.status_code} • ${data.response_time_ms} ms</span>
-                        </div>
-                    </div>
-                    <button id="downloadPdfBtn" class="download-btn" onclick="downloadPdfReport()">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        Download PDF
-                    </button>
-                </div>
-
-                <div class="metrics-grid">
-                    <div class="card-3d full-width" onclick="copyToClipboard('${escapeHtml(data.title || '')}', 'Title')">
-                        <div class="card-header">
-                            <span class="card-label">Document Title</span>
-                            <span class="copy-hint">CLICK TO COPY</span>
-                        </div>
-                        <div class="card-text">${escapeHtml(data.title || 'No title tag present')}</div>
-                    </div>
-
-                    <div class="card-3d full-width" onclick="copyToClipboard('${escapeHtml(data.meta_description || '')}', 'Meta Description')">
-                        <div class="card-header">
-                            <span class="card-label">Meta Description</span>
-                            <span class="copy-hint">CLICK TO COPY</span>
-                        </div>
-                        <div class="card-text">${escapeHtml(data.meta_description || 'No meta description found')}</div>
-                    </div>
-
-                    <div class="card-3d">
-                        <div class="card-header">
-                            <span class="card-label">H1 Headings</span>
-                        </div>
-                        <div class="card-value">${data.h1_count}</div>
-                    </div>
-
-                    <div class="card-3d">
-                        <div class="card-header">
-                            <span class="card-label">Images Missing Alt</span>
-                        </div>
-                        <div class="card-value">${data.images_missing_alt}</div>
-                    </div>
-
-                    <div class="card-3d">
-                        <div class="card-header">
-                            <span class="card-label">Approximate Words</span>
-                        </div>
-                        <div class="card-value">${data.word_count ? data.word_count.toLocaleString() : 0}</div>
-                    </div>
-                </div>
-            `;
-
-            document.querySelectorAll('.card-3d').forEach(attach3DEffect);
-        }
-
-        function downloadPdfReport() {
-            const reportElement = document.getElementById("resultsContainer");
-            const targetUrl = document.getElementById("urlInput").value.trim() || "audit-report";
-            
-            const sanitizedFileName = targetUrl
-                .replace(/^https?:\/\//, '')
-                .replace(/[^a-zA-Z0-9]/g, '-')
-                .replace(/-+/g, '-') + '-audit-report.pdf';
-
-            const btn = document.getElementById("downloadPdfBtn");
-            btn.style.visibility = "hidden";
-
-            // Temporarily apply printable clean styles for html2pdf
-            reportElement.classList.add("pdf-export-mode");
-
-            const options = {
-                margin:       [0.4, 0.4, 0.4, 0.4],
-                filename:     sanitizedFileName,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#FAF9F6' },
-                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-            };
-
-            html2pdf().set(options).from(reportElement).save().then(() => {
-                btn.style.visibility = "visible";
-                reportElement.classList.remove("pdf-export-mode");
-            });
-        }
-
-        function copyToClipboard(text, label) {
-            if (!text) return;
-            navigator.clipboard.writeText(text);
-            showToast(`Copied ${label} to clipboard`);
-        }
-
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.innerText = message;
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 2200);
-        }
-
-        function escapeHtml(str) {
-            return String(str).replace(/[&<>"']/g, function(m) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
-            });
-        }
-    </script>
-</body>
-</html>
