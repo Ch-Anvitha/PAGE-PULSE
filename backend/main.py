@@ -1,15 +1,17 @@
 import time
 import re
+from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from curl_cffi.requests import AsyncSession
 from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from bs4 import BeautifulSoup
 
 app = FastAPI(title="Page Pulse API")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,6 +19,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Resolve the absolute path to the directory containing main.py
+BASE_DIR = Path(__file__).resolve().parent
 
 class AuditRequest(BaseModel):
     url: str
@@ -39,11 +44,15 @@ def normalize_url(raw_url: str) -> str:
         cleaned = f"https://{cleaned}"
     return cleaned
 
-# Serves the frontend directly from this same service, so the whole app
-# (UI + API) lives at one Render URL instead of needing a separate static site.
 @app.get("/")
 async def serve_frontend():
-    return FileResponse("index.html")
+    html_path = BASE_DIR / "index.html"
+    if html_path.exists():
+        return FileResponse(html_path)
+    return JSONResponse(
+        status_code=404, 
+        content={"error": "index.html not found in the server root directory."}
+    )
 
 @app.post("/api/analyze")
 @app.post("/analyze")
